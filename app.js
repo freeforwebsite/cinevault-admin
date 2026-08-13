@@ -291,8 +291,11 @@ function addStreamField() {
 
 async function saveMasterMovie() {
     if (!currentMasterMovie) {
-        alert("Please fetch TMDB metadata first.");
-        return;
+        // Automatically try to fetch it for them if they forgot to click the button
+        await fetchTmdbMetadata();
+        if (!currentMasterMovie) {
+            return; // If it's still null, fetch failed (error alert already shown)
+        }
     }
     
     const statusEl = document.getElementById('add-movie-status');
