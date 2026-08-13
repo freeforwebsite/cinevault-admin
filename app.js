@@ -27,16 +27,21 @@ document.addEventListener('DOMContentLoaded', () => {
     initDashboard();
 });
 
+const API_URL = 'https://cinevault-backend-2fl5.onrender.com';
+
 // --- Storefront State & Logic ---
-let storefrontRows = [
-    { id: 'row1', title: 'Trending Now', movies: [] },
-    { id: 'row2', title: 'Popular on Cinevault', movies: [] },
-    { id: 'row3', title: 'Top Rated', movies: [] }
-];
+let storefrontRows = [];
 let targetRowForAdd = null;
 
-function initStorefront() {
-    renderStorefrontRows();
+async function initStorefront() {
+    try {
+        const response = await fetch(`${API_URL}/storefront`);
+        const data = await response.json();
+        storefrontRows = data.rows || [];
+        renderStorefrontRows();
+    } catch (e) {
+        console.error("Failed to load storefront", e);
+    }
 }
 
 function renderStorefrontRows() {
@@ -102,15 +107,28 @@ function removeMovieFromRow(rowId, movieId) {
     }
 }
 
-// --- Mock Data ---
-const mockDb = [
-    { id: '1', title: 'Leo', poster: 'https://image.tmdb.org/t/p/w500/p9nKnOAVQO58t2lQikZ9vGstEvy.jpg', quality: '1080p', language: 'Tamil' },
-    { id: '2', title: 'Jailer', poster: 'https://image.tmdb.org/t/p/w500/wffEQ9qHn7gM2k0TfFfS4vEpxP.jpg', quality: '720p', language: 'Tamil' },
-    { id: '3', title: 'Vikram', poster: 'https://image.tmdb.org/t/p/w500/9yZ4QkAvtNeqX3W4Fq4m8s37Zid.jpg', quality: '1080p', language: 'Tamil' },
-    { id: '4', title: 'Master', poster: 'https://image.tmdb.org/t/p/w500/8c7q5M09jEAWz7k4lq32o8N4R7M.jpg', quality: '720p', language: 'Tamil' },
-    { id: '5', title: 'Kaithi', poster: 'https://image.tmdb.org/t/p/w500/eWjJ3E2oYfM58H0JtA11lqA8i9M.jpg', quality: '1080p', language: 'Tamil' },
-    { id: '6', title: 'Avatar', poster: 'https://image.tmdb.org/t/p/w500/jRXYjXNq0Cs2TcJjLkki24MLp7u.jpg', quality: '4K', language: 'English' }
-];
+    document.getElementById('save-storefront-btn').addEventListener('click', async () => {
+        const btn = document.getElementById('save-storefront-btn');
+        const originalText = btn.innerHTML;
+        btn.innerHTML = `<i class='bx bx-loader-alt bx-spin'></i> Saving...`;
+        
+        try {
+            await fetch(`${API_URL}/storefront`, {
+                method: 'POST',
+                headers: { 'Content-Type': 'application/json' },
+                body: JSON.stringify({ rows: storefrontRows })
+            });
+            btn.innerHTML = `<i class='bx bx-check'></i> Saved!`;
+            setTimeout(() => btn.innerHTML = originalText, 2000);
+        } catch (e) {
+            console.error("Save failed", e);
+            btn.innerHTML = `<i class='bx bx-error'></i> Error`;
+            setTimeout(() => btn.innerHTML = originalText, 2000);
+        }
+    });
+
+// --- Database State ---
+let inventoryDb = [];
 
 // --- Search Modal Logic ---
 function openSearchModal(rowId) {
@@ -135,7 +153,7 @@ function handleSearch() {
         return;
     }
     
-    const results = mockDb.filter(m => m.title.toLowerCase().includes(query));
+    const results = inventoryDb.filter(m => m.title.toLowerCase().includes(query));
     
     grid.innerHTML = '';
     results.forEach(movie => {
@@ -164,8 +182,15 @@ function addMovieToTargetRow(movie) {
 }
 
 // --- Inventory Logic ---
-function initInventory() {
-    renderInventory(mockDb);
+async function initInventory() {
+    try {
+        const response = await fetch(`${API_URL}/inventory`);
+        inventoryDb = await response.json();
+        renderInventory(inventoryDb);
+        document.getElementById('total-movies-count').textContent = inventoryDb.length;
+    } catch (e) {
+        console.error("Failed to load inventory", e);
+    }
 }
 
 function renderInventory(movies) {
@@ -190,7 +215,7 @@ function renderInventory(movies) {
 
 function filterInventory(query) {
     const q = query.toLowerCase();
-    const filtered = mockDb.filter(m => m.title.toLowerCase().includes(q));
+    const filtered = inventoryDb.filter(m => m.title.toLowerCase().includes(q));
     renderInventory(filtered);
 }
 
