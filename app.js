@@ -260,7 +260,20 @@ async function fetchTmdbMetadata() {
         if (streamCount === 0) addStreamField();
         
     } catch (e) {
-        alert(e.message || "Failed to fetch TMDB data. Check the input.");
+        // If TMDB fails (e.g. ISP blocking), fallback to manual entry using the input as title
+        currentMasterMovie = {
+            tmdbId: Date.now().toString(), // generate a unique ID
+            title: input,
+            poster: "https://via.placeholder.com/500x750?text=No+Poster",
+            streams: []
+        };
+        
+        document.getElementById('curated-title').textContent = currentMasterMovie.title;
+        document.getElementById('curated-year').textContent = "Manual Entry";
+        document.getElementById('curated-poster').src = currentMasterMovie.poster;
+        document.getElementById('curated-metadata-preview').style.display = "flex";
+        
+        if (streamCount === 0) addStreamField();
     }
 }
 
