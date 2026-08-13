@@ -227,13 +227,23 @@ let currentMasterMovie = null;
 let streamCount = 0;
 
 async function fetchTmdbMetadata() {
-    const tmdbId = document.getElementById('curated-tmdb-id').value;
-    if (!tmdbId) return;
+    const input = document.getElementById('curated-tmdb-id').value;
+    if (!input) return;
     
     try {
-        const res = await fetch(`https://api.themoviedb.org/3/movie/${tmdbId}?api_key=15d2ea6d0dc1d476efbca3eba2b9bbfb`);
-        if (!res.ok) throw new Error("TMDB not found");
-        const data = await res.json();
+        let data;
+        // If purely digits, fetch by ID. Else search by title.
+        if (/^\d+$/.test(input)) {
+            const res = await fetch(`https://api.themoviedb.org/3/movie/${input}?api_key=15d2ea6d0dc1d476efbca3eba2b9bbfb`);
+            if (!res.ok) throw new Error("TMDB ID not found");
+            data = await res.json();
+        } else {
+            const res = await fetch(`https://api.themoviedb.org/3/search/movie?query=${encodeURIComponent(input)}&api_key=15d2ea6d0dc1d476efbca3eba2b9bbfb`);
+            if (!res.ok) throw new Error("TMDB Search failed");
+            const searchData = await res.json();
+            if (searchData.results.length === 0) throw new Error("No movies found with that title");
+            data = searchData.results[0]; // Take first result
+        }
         
         currentMasterMovie = {
             tmdbId: data.id,
@@ -250,7 +260,7 @@ async function fetchTmdbMetadata() {
         if (streamCount === 0) addStreamField();
         
     } catch (e) {
-        alert("Failed to fetch TMDB data. Check the ID.");
+        alert(e.message || "Failed to fetch TMDB data. Check the input.");
     }
 }
 
@@ -358,64 +368,41 @@ async function saveMasterMovie() {
 }
 
 function initDashboard() {
-    // Simulate fetching from MongoDB / Backend
-    document.getElementById('total-movies-count').textContent = '1,325';
-    document.getElementById('queue-count').textContent = '42';
-    document.getElementById('enriched-count').textContent = '1,280';
+    if (!inventoryDb) return;
+    
+    document.getElementById('total-movies-count').textContent = inventoryDb.length;
+    document.getElementById('queue-count').textContent = '0';
+    document.getElementById('enriched-count').textContent = inventoryDb.length;
 
-    const mockRecentMovies = [
-        {
-            title: "Leo",
-            poster: "https://image.tmdb.org/t/p/w500/p9nKnOAVQO58t2lQikZ9vGstEvy.jpg",
-            quality: "1080p",
-            language: "Tamil",
-            status: "active"
-        },
-        {
-            title: "Jailer",
-            poster: "https://image.tmdb.org/t/p/w500/wffEQ9qHn7gM2k0TfFfS4vEpxP.jpg",
-            quality: "720p",
-            language: "Tamil",
-            status: "active"
-        },
-        {
-            title: "Vikram",
-            poster: "https://image.tmdb.org/t/p/w500/9yZ4QkAvtNeqX3W4Fq4m8s37Zid.jpg",
-            quality: "1080p",
-            language: "Tamil, Telugu",
-            status: "active"
-        },
-        {
-            title: "Scraping Queue #42",
-            poster: "https://via.placeholder.com/40x60?text=?",
-            quality: "Unknown",
-            language: "Unknown",
-            status: "pending"
-        }
-    ];
-
-    const tbody = document.getElementById('recent-movies-list');
-    tbody.innerHTML = '';
-
-    mockRecentMovies.forEach(movie => {
-        const tr = document.createElement('tr');
+    const list = document.getElementById('recent-movies-list');
+    if (!list) return;
+    
+    list.innerHTML = '';
+    
+    // Take the 5 most recent master movies
+    const recentMovies = inventoryDb.slice(0, 5);
+    
+    if (recentMovies.length === 0) {
+        list.innerHTML = `<tr><td colspan="5" style="text-align: center; color: var(--text-muted); padding: 20px;">No master movies created yet. Go to Add Movie to create one.</td></tr>`;
+        return;
+    }
+    
+    recentMovies.forEach(movie => {
+        const streamCount = movie.streams ? movie.streams.length : 0;
+        const languages = movie.streams ? [...new Set(movie.streams.map(s => s.language))].join(', ') : '';
         
-        const statusClass = movie.status === 'active' ? 'active' : 'pending';
-        const statusText = movie.status === 'active' ? 'Live in Store' : 'Scraping...';
-
-        tr.innerHTML = `
-            <td>
-                <div class="poster-cell">
-                    <img src="${movie.poster}" alt="${movie.title}">
-                    <span style="font-family: 'Outfit'; font-weight: 600;">${movie.title}</span>
-                </div>
-            </td>
-            <td>${movie.quality}</td>
-            <td>${movie.language}</td>
-            <td>
-                <span class="status-badge ${statusClass}">${statusText}</span>
-            </td>
+        list.innerHTML += `
+            <tr>
+                <td>
+                    <div style="display:flex; align-items:center; gap: 15px;">
+                        <img src="${movie.poster}" class="table-poster" onerror="this.src='https://via.placeholder.com/50x75?text=No+Poster'">
+                        <span style="font-weight: 600;">${movie.title}</span>
+                    </div>
+                </td>
+                <td><span class="status-badge" style="background: rgba(108, 92, 231, 0.2); color: var(--primary-color);">${streamCount} Streams</span></td>
+                <td>${languages}</td>
+                <td><span class="status-badge status-active">Live in Store</span></td>
+            </tr>
         `;
-        tbody.appendChild(tr);
     });
 }
