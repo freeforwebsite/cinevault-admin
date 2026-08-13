@@ -176,16 +176,40 @@
             </div>
 
             <div class="view-container hidden" id="add-product-view">
-                <h1 class="view-title">Add Movie to Store</h1>
-                <p class="view-subtitle">Queue a new movie for the backend scraper to download and process.</p>
+                <h1 class="view-title">Create Master Movie</h1>
+                <p class="view-subtitle">Manually add a movie by fetching its TMDB metadata and pasting your auto-filter bot stream links.</p>
                 
-                <div class="glass-panel" style="max-width: 600px; margin-top: 30px;">
+                <div class="glass-panel" style="max-width: 800px; margin-top: 30px;">
+                    <!-- Step 1: TMDB Fetch -->
+                    <div style="margin-bottom: 20px; display: flex; gap: 10px;">
+                        <div style="flex: 1;">
+                            <label style="display:block; margin-bottom: 8px; color: var(--text-muted);">TMDB ID</label>
+                            <input type="text" id="curated-tmdb-id" class="search-box" style="width: 100%; border: 1px solid var(--border-color); border-radius: 8px; padding: 12px; background: rgba(255,255,255,0.05); color: white;" placeholder="e.g. 615656 for Meg 2">
+                        </div>
+                        <button class="primary-btn" onclick="fetchTmdbMetadata()" style="margin-top: 28px;"><i class='bx bx-search'></i> Fetch Poster</button>
+                    </div>
+
+                    <!-- Step 2: Metadata Preview -->
+                    <div id="curated-metadata-preview" style="display: none; align-items: center; gap: 20px; margin-bottom: 30px; padding: 15px; background: rgba(0,0,0,0.3); border-radius: 10px;">
+                        <img id="curated-poster" src="" style="width: 80px; height: 120px; border-radius: 8px; object-fit: cover;">
+                        <div>
+                            <h3 id="curated-title" style="margin: 0; color: white;"></h3>
+                            <p id="curated-year" style="margin: 5px 0 0 0; color: var(--text-muted);"></p>
+                        </div>
+                    </div>
+
+                    <!-- Step 3: Stream Links -->
                     <div style="margin-bottom: 20px;">
-                        <label style="display:block; margin-bottom: 8px; color: var(--text-muted);">TMDB ID or Movie Name</label>
-                        <input type="text" id="add-movie-input" class="search-box" style="width: 100%; border: 1px solid var(--border-color); border-radius: 8px; padding: 12px; background: rgba(255,255,255,0.05); color: white;" placeholder="e.g. Leo or 123456">
+                        <div style="display: flex; justify-content: space-between; align-items: center; margin-bottom: 10px;">
+                            <label style="color: var(--text-muted); font-size: 16px;">Stream Links (Auto-Filter Bot URLs)</label>
+                            <button class="primary-btn" onclick="addStreamField()" style="padding: 5px 10px; font-size: 12px;"><i class='bx bx-plus'></i> Add Stream</button>
+                        </div>
+                        <div id="curated-streams-container">
+                            <!-- Stream fields injected here -->
+                        </div>
                     </div>
                     
-                    <button class="primary-btn" onclick="queueNewMovie()" style="width: 100%;"><i class='bx bx-cloud-download'></i> Queue Movie for Scraper</button>
+                    <button class="primary-btn" onclick="saveMasterMovie()" style="width: 100%; margin-top: 10px;"><i class='bx bx-save'></i> Save Master Movie to Inventory</button>
                     
                     <div id="add-movie-status" style="margin-top: 20px; font-size: 14px; text-align: center; color: var(--primary-color);"></div>
                 </div>

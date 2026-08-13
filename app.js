@@ -157,6 +157,7 @@ function handleSearch() {
     
     grid.innerHTML = '';
     results.forEach(movie => {
+        const streamCount = movie.streams ? movie.streams.length : 0;
         const el = document.createElement('div');
         el.className = 'search-result-item';
         el.onclick = () => addMovieToTargetRow(movie);
@@ -164,7 +165,7 @@ function handleSearch() {
             <img src="${movie.poster}" alt="${movie.title}" onerror="this.src='https://via.placeholder.com/140x210?text=No+Poster'">
             <div class="overlay">
                 <h4>${movie.title}</h4>
-                <span>${movie.quality}</span>
+                <span>${streamCount} Streams</span>
             </div>
         `;
         grid.appendChild(el);
@@ -199,12 +200,14 @@ function renderInventory(movies) {
     
     list.innerHTML = '';
     movies.forEach(movie => {
+        const streamCount = movie.streams ? movie.streams.length : 0;
+        const languages = movie.streams ? [...new Set(movie.streams.map(s => s.language))].join(', ') : '';
         list.innerHTML += `
             <tr>
                 <td><img src="${movie.poster}" class="table-poster" onerror="this.src='https://via.placeholder.com/50x75?text=No+Poster'"></td>
                 <td style="font-weight: 600;">${movie.title}</td>
-                <td><span class="status-badge" style="background: rgba(108, 92, 231, 0.2); color: var(--primary-color);">${movie.quality}</span></td>
-                <td>${movie.language}</td>
+                <td><span class="status-badge" style="background: rgba(108, 92, 231, 0.2); color: var(--primary-color);">${streamCount} Streams</span></td>
+                <td>${languages}</td>
                 <td>
                     <button class="icon-btn" style="color: #ff4757; border-color: rgba(255,71,87,0.2)" onclick="alert('Delete functionality coming soon!')"><i class='bx bx-trash'></i></button>
                 </td>
@@ -219,26 +222,139 @@ function filterInventory(query) {
     renderInventory(filtered);
 }
 
-// --- Add Movie Logic ---
-function queueNewMovie() {
-    const input = document.getElementById('add-movie-input').value;
-    const statusEl = document.getElementById('add-movie-status');
+// --- Add Master Movie Logic ---
+let currentMasterMovie = null;
+let streamCount = 0;
+
+async function fetchTmdbMetadata() {
+    const tmdbId = document.getElementById('curated-tmdb-id').value;
+    if (!tmdbId) return;
     
-    if (!input) {
-        statusEl.textContent = "Please enter a TMDB ID or Movie Name.";
-        statusEl.style.color = "#ff4757";
+    try {
+        const res = await fetch(`https://api.themoviedb.org/3/movie/${tmdbId}?api_key=15d2ea6d0dc1d476efbca3eba2b9bbfb`);
+        if (!res.ok) throw new Error("TMDB not found");
+        const data = await res.json();
+        
+        currentMasterMovie = {
+            tmdbId: data.id,
+            title: data.title,
+            poster: `https://image.tmdb.org/t/p/w500${data.poster_path}`,
+            streams: []
+        };
+        
+        document.getElementById('curated-title').textContent = data.title;
+        document.getElementById('curated-year').textContent = data.release_date ? data.release_date.split('-')[0] : "";
+        document.getElementById('curated-poster').src = currentMasterMovie.poster;
+        document.getElementById('curated-metadata-preview').style.display = "flex";
+        
+        if (streamCount === 0) addStreamField();
+        
+    } catch (e) {
+        alert("Failed to fetch TMDB data. Check the ID.");
+    }
+}
+
+function addStreamField() {
+    streamCount++;
+    const container = document.getElementById('curated-streams-container');
+    const id = `stream-${streamCount}`;
+    
+    const html = `
+        <div id="${id}" style="display: flex; gap: 10px; margin-bottom: 10px; align-items: center; background: rgba(0,0,0,0.2); padding: 10px; border-radius: 8px;">
+            <select class="search-box" id="${id}-quality" style="width: 100px; padding: 8px; border:none; background:rgba(255,255,255,0.1); color:white;">
+                <option style="color:black;" value="1080p">1080p</option>
+                <option style="color:black;" value="720p">720p</option>
+                <option style="color:black;" value="4K">4K</option>
+            </select>
+            <select class="search-box" id="${id}-lang" style="width: 120px; padding: 8px; border:none; background:rgba(255,255,255,0.1); color:white;">
+                <option style="color:black;" value="Tamil">Tamil</option>
+                <option style="color:black;" value="Telugu">Telugu</option>
+                <option style="color:black;" value="Hindi">Hindi</option>
+                <option style="color:black;" value="Multi">Multi</option>
+            </select>
+            <input type="text" id="${id}-url" class="search-box" style="flex: 1; padding: 8px; border:none; background:rgba(255,255,255,0.1); color:white;" placeholder="Paste auto-filter link here...">
+            <button class="icon-btn" style="color: #ff4757;" onclick="document.getElementById('${id}').remove()"><i class='bx bx-trash'></i></button>
+        </div>
+    `;
+    container.insertAdjacentHTML('beforeend', html);
+}
+
+async function saveMasterMovie() {
+    if (!currentMasterMovie) {
+        alert("Please fetch TMDB metadata first.");
         return;
     }
     
-    // Simulate API call to backend
-    statusEl.textContent = "Sending request to Telegram bot...";
-    statusEl.style.color = "var(--primary-color)";
+    const statusEl = document.getElementById('add-movie-status');
+    statusEl.textContent = "Saving Master Movie...";
     
-    setTimeout(() => {
-        statusEl.innerHTML = `<i class='bx bx-check-circle'></i> "${input}" has been queued successfully! It will appear in Inventory once processed.`;
-        statusEl.style.color = "#2ed573";
-        document.getElementById('add-movie-input').value = '';
-    }, 1500);
+    const streamDivs = document.getElementById('curated-streams-container').children;
+    const streams = [];
+    
+    for (let div of streamDivs) {
+        const id = div.id;
+        const quality = document.getElementById(`${id}-quality`).value;
+        const lang = document.getElementById(`${id}-lang`).value;
+        const url = document.getElementById(`${id}-url`).value;
+        
+        if (!url) continue;
+        
+        const parts = url.split('/player/');
+        if (parts.length > 1) {
+            const fileParts = parts[1].split('/');
+            const fileId = fileParts[0];
+            const fileName = fileParts.slice(1).join('/');
+            
+            streams.push({
+                quality: quality,
+                language: lang,
+                fileId: fileId,
+                fileName: fileName
+            });
+        } else {
+            // Fallback for unparseable urls
+            streams.push({
+                quality: quality,
+                language: lang,
+                fileId: "",
+                fileName: "",
+                rawUrl: url
+            });
+        }
+    }
+    
+    if (streams.length === 0) {
+        statusEl.textContent = "You must add at least one valid stream URL.";
+        return;
+    }
+    
+    currentMasterMovie.streams = streams;
+    
+    try {
+        const res = await fetch(`${API_URL}/inventory/curated`, {
+            method: 'POST',
+            headers: { 'Content-Type': 'application/json' },
+            body: JSON.stringify(currentMasterMovie)
+        });
+        
+        if (res.ok) {
+            statusEl.innerHTML = `<i class='bx bx-check-circle'></i> "${currentMasterMovie.title}" successfully saved!`;
+            statusEl.style.color = "#2ed573";
+            setTimeout(() => {
+                document.getElementById('curated-tmdb-id').value = '';
+                document.getElementById('curated-metadata-preview').style.display = "none";
+                document.getElementById('curated-streams-container').innerHTML = '';
+                statusEl.innerHTML = '';
+                currentMasterMovie = null;
+                streamCount = 0;
+                initInventory();
+            }, 2000);
+        } else {
+            statusEl.textContent = "Failed to save.";
+        }
+    } catch(e) {
+        statusEl.textContent = "Network error.";
+    }
 }
 
 function initDashboard() {
