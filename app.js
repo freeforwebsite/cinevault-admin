@@ -301,6 +301,11 @@ async function saveMasterMovie() {
     const statusEl = document.getElementById('add-movie-status');
     statusEl.textContent = "Saving Master Movie...";
     
+    const customPoster = document.getElementById('curated-custom-poster').value;
+    if (customPoster && customPoster.trim() !== '') {
+        currentMasterMovie.poster = customPoster.trim();
+    }
+    
     const streamDivs = document.getElementById('curated-streams-container').children;
     const streams = [];
     
@@ -355,6 +360,7 @@ async function saveMasterMovie() {
             statusEl.style.color = "#2ed573";
             setTimeout(() => {
                 document.getElementById('curated-tmdb-id').value = '';
+                document.getElementById('curated-custom-poster').value = '';
                 document.getElementById('curated-metadata-preview').style.display = "none";
                 document.getElementById('curated-streams-container').innerHTML = '';
                 statusEl.innerHTML = '';
