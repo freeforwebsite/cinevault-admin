@@ -222,6 +222,26 @@ function filterInventory(query) {
     renderInventory(filtered);
 }
 
+function globalSearch(query) {
+    const q = query.toLowerCase();
+    const filtered = inventoryDb.filter(m => m.title.toLowerCase().includes(q));
+    
+    // Also update the inventory search box so they stay in sync
+    const invSearch = document.querySelector('#inventory-view .search-box input');
+    if (invSearch && invSearch !== document.activeElement) invSearch.value = query;
+    
+    renderInventory(filtered);
+    
+    const dashboardTitle = document.querySelector('#dashboard-view .section-title');
+    if (q === '') {
+        renderDashboardTable(inventoryDb.slice(0, 5));
+        if (dashboardTitle) dashboardTitle.textContent = "Recently Added";
+    } else {
+        renderDashboardTable(filtered);
+        if (dashboardTitle) dashboardTitle.textContent = "Search Results";
+    }
+}
+
 // --- Add Master Movie Logic ---
 let currentMasterMovie = null;
 let streamCount = 0;
@@ -396,20 +416,22 @@ function initDashboard() {
     document.getElementById('queue-count').textContent = '0';
     document.getElementById('enriched-count').textContent = inventoryDb.length;
 
+    // Initially render the 5 most recent master movies
+    renderDashboardTable(inventoryDb.slice(0, 5));
+}
+
+function renderDashboardTable(movies) {
     const list = document.getElementById('recent-movies-list');
     if (!list) return;
     
     list.innerHTML = '';
     
-    // Take the 5 most recent master movies
-    const recentMovies = inventoryDb.slice(0, 5);
-    
-    if (recentMovies.length === 0) {
-        list.innerHTML = `<tr><td colspan="5" style="text-align: center; color: var(--text-muted); padding: 20px;">No master movies created yet. Go to Add Movie to create one.</td></tr>`;
+    if (movies.length === 0) {
+        list.innerHTML = `<tr><td colspan="4" style="text-align: center; color: var(--text-muted); padding: 20px;">No movies found.</td></tr>`;
         return;
     }
     
-    recentMovies.forEach(movie => {
+    movies.forEach(movie => {
         const streamCount = movie.streams ? movie.streams.length : 0;
         const languages = movie.streams ? [...new Set(movie.streams.map(s => s.language))].join(', ') : '';
         
