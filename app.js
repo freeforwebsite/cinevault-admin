@@ -209,11 +209,47 @@ function renderInventory(movies) {
                 <td><span class="status-badge" style="background: rgba(108, 92, 231, 0.2); color: var(--primary-color);">${streamCount} Streams</span></td>
                 <td>${languages}</td>
                 <td>
+                    <button class="icon-btn" style="color: #4da6ff; border-color: rgba(77,166,255,0.2)" onclick="editMovie('${movie.tmdbId || movie.id || movie._id}')"><i class='bx bx-edit'></i></button>
                     <button class="icon-btn" style="color: #ff4757; border-color: rgba(255,71,87,0.2)" onclick="alert('Delete functionality coming soon!')"><i class='bx bx-trash'></i></button>
                 </td>
             </tr>
         `;
     });
+}
+
+function editMovie(movieId) {
+    const movie = inventoryDb.find(m => (m.tmdbId || m.id || m._id) === movieId);
+    if (!movie) return;
+    
+    currentMasterMovie = JSON.parse(JSON.stringify(movie));
+    
+    document.getElementById('curated-tmdb-id').value = movie.tmdbId || movie.id || movie._id;
+    document.getElementById('curated-custom-poster').value = movie.poster || '';
+    
+    document.getElementById('curated-title').textContent = movie.title;
+    document.getElementById('curated-year').textContent = "Editing Mode";
+    document.getElementById('curated-poster').src = movie.poster;
+    document.getElementById('curated-metadata-preview').style.display = "flex";
+    
+    document.getElementById('curated-streams-container').innerHTML = '';
+    streamCount = 0;
+    
+    if (movie.streams && movie.streams.length > 0) {
+        movie.streams.forEach(stream => {
+            addStreamField(stream);
+        });
+    } else {
+        addStreamField();
+    }
+    
+    document.querySelector('#add-product-view .view-title').textContent = "Edit Master Movie";
+    
+    document.querySelectorAll('.nav-links li').forEach(l => l.classList.remove('active'));
+    const addLink = document.querySelector('.nav-links li[data-view="add-product"]');
+    if (addLink) addLink.classList.add('active');
+    
+    document.querySelectorAll('.view-container').forEach(v => v.classList.add('hidden'));
+    document.getElementById('add-product-view').classList.remove('hidden');
 }
 
 function filterInventory(query) {
@@ -297,26 +333,44 @@ async function fetchTmdbMetadata() {
     }
 }
 
-function addStreamField() {
+function addStreamField(existingStream = null) {
     streamCount++;
     const container = document.getElementById('curated-streams-container');
     const id = `stream-${streamCount}`;
     
+    const q = existingStream?.quality || '1080p';
+    const l = existingStream?.language || 'Tamil';
+    
+    const fileId = existingStream?.fileId || existingStream?.file_id || '';
+    const fileName = existingStream?.fileName || existingStream?.file_name || '';
+    const url = existingStream?.rawUrl || existingStream?.url || (fileId ? `https://t.me/player/${fileId}/${fileName}` : '');
+    
+    const season = existingStream?.season || '';
+    const episode = existingStream?.episode || '';
+    const name = existingStream?.name || '';
+    
     const html = `
-        <div id="${id}" style="display: flex; gap: 10px; margin-bottom: 10px; align-items: center; background: rgba(0,0,0,0.2); padding: 10px; border-radius: 8px;">
-            <select class="search-box" id="${id}-quality" style="width: 100px; padding: 8px; border:none; background:rgba(255,255,255,0.1); color:white;">
-                <option style="color:black;" value="1080p">1080p</option>
-                <option style="color:black;" value="720p">720p</option>
-                <option style="color:black;" value="4K">4K</option>
-            </select>
-            <select class="search-box" id="${id}-lang" style="width: 120px; padding: 8px; border:none; background:rgba(255,255,255,0.1); color:white;">
-                <option style="color:black;" value="Tamil">Tamil</option>
-                <option style="color:black;" value="Telugu">Telugu</option>
-                <option style="color:black;" value="Hindi">Hindi</option>
-                <option style="color:black;" value="Multi">Multi</option>
-            </select>
-            <input type="text" id="${id}-url" class="search-box" style="flex: 1; padding: 8px; border:none; background:rgba(255,255,255,0.1); color:white;" placeholder="Paste auto-filter link here...">
-            <button class="icon-btn" style="color: #ff4757;" onclick="document.getElementById('${id}').remove()"><i class='bx bx-trash'></i></button>
+        <div id="${id}" style="display: flex; flex-direction: column; gap: 10px; margin-bottom: 15px; background: rgba(0,0,0,0.2); padding: 15px; border-radius: 8px;">
+            <div style="display: flex; gap: 10px; align-items: center;">
+                <select class="search-box" id="${id}-quality" style="width: 100px; padding: 8px; border:none; background:rgba(255,255,255,0.1); color:white;">
+                    <option style="color:black;" value="1080p" ${q==='1080p'?'selected':''}>1080p</option>
+                    <option style="color:black;" value="720p" ${q==='720p'?'selected':''}>720p</option>
+                    <option style="color:black;" value="4K" ${q==='4K'?'selected':''}>4K</option>
+                </select>
+                <select class="search-box" id="${id}-lang" style="width: 120px; padding: 8px; border:none; background:rgba(255,255,255,0.1); color:white;">
+                    <option style="color:black;" value="Tamil" ${l==='Tamil'?'selected':''}>Tamil</option>
+                    <option style="color:black;" value="Telugu" ${l==='Telugu'?'selected':''}>Telugu</option>
+                    <option style="color:black;" value="Hindi" ${l==='Hindi'?'selected':''}>Hindi</option>
+                    <option style="color:black;" value="Multi" ${l==='Multi'?'selected':''}>Multi</option>
+                </select>
+                <input type="text" id="${id}-url" class="search-box" style="flex: 1; padding: 8px; border:none; background:rgba(255,255,255,0.1); color:white;" placeholder="Paste auto-filter link here..." value="${url}">
+                <button class="icon-btn" style="color: #ff4757;" onclick="document.getElementById('${id}').remove()"><i class='bx bx-trash'></i></button>
+            </div>
+            <div style="display: flex; gap: 10px; align-items: center;">
+                <input type="text" id="${id}-season" class="search-box" style="width: 100px; padding: 8px; border:none; background:rgba(255,255,255,0.1); color:white;" placeholder="Season (e.g. 1)" value="${season}">
+                <input type="text" id="${id}-episode" class="search-box" style="width: 100px; padding: 8px; border:none; background:rgba(255,255,255,0.1); color:white;" placeholder="Episode (e.g. 1)" value="${episode}">
+                <input type="text" id="${id}-name" class="search-box" style="flex: 1; padding: 8px; border:none; background:rgba(255,255,255,0.1); color:white;" placeholder="Episode Title (e.g. The Vanishing of Will Byers)" value="${name}">
+            </div>
         </div>
     `;
     container.insertAdjacentHTML('beforeend', html);
@@ -347,31 +401,31 @@ async function saveMasterMovie() {
         const quality = document.getElementById(`${id}-quality`).value;
         const lang = document.getElementById(`${id}-lang`).value;
         const url = document.getElementById(`${id}-url`).value;
+        const season = document.getElementById(`${id}-season`).value;
+        const episode = document.getElementById(`${id}-episode`).value;
+        const name = document.getElementById(`${id}-name`).value;
         
         if (!url) continue;
         
+        let fileId = "";
+        let fileName = "";
         const parts = url.split('/player/');
         if (parts.length > 1) {
             const fileParts = parts[1].split('/');
-            const fileId = fileParts[0];
-            const fileName = fileParts.slice(1).join('/');
-            
-            streams.push({
-                quality: quality,
-                language: lang,
-                fileId: fileId,
-                fileName: fileName
-            });
-        } else {
-            // Fallback for unparseable urls
-            streams.push({
-                quality: quality,
-                language: lang,
-                fileId: "",
-                fileName: "",
-                rawUrl: url
-            });
+            fileId = fileParts[0];
+            fileName = fileParts.slice(1).join('/');
         }
+        
+        streams.push({
+            quality: quality,
+            language: lang,
+            file_id: fileId,
+            file_name: fileName,
+            url: url,
+            season: season,
+            episode: episode,
+            name: name
+        });
     }
     
     if (streams.length === 0) {
